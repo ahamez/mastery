@@ -2,7 +2,8 @@ defmodule MasteryPersistence do
   import Ecto.Query, only: [from: 2]
   alias MasteryPersistence.{Repo, Response}
 
-  def record_response(response) do
+  # def record_response(response, in_transaction \\ fn _response -> :ok end) do
+  def record_response(response, in_transaction) do
     {:ok, result} =
       Repo.transaction(fn ->
         %{
@@ -18,7 +19,7 @@ defmodule MasteryPersistence do
         |> Response.changeset()
         |> Repo.insert!()
 
-        :ok
+        in_transaction.(response)
       end)
 
     result

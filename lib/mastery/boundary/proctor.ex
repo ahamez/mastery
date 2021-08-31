@@ -12,7 +12,8 @@ defmodule Mastery.Boundary.Proctor do
           fields: map() | keyword(),
           start_at: Calendar.datetime(),
           end_at: Calendar.datetime(),
-          templates: %{Template.category() => [Template.t()]}
+          templates: %{Template.category() => [Template.t()]},
+          notify_pid: pid() | nil
         }
 
   # -- Initialization
@@ -31,6 +32,7 @@ defmodule Mastery.Boundary.Proctor do
   @spec start_quiz(quiz_map(), DateTime.t()) :: :ok | :error
   def start_quiz(quiz, now) do
     Logger.info("Starting quiz #{quiz.fields.title}")
+    notify_quiz_start(quiz)
 
     QuizManager.build_quiz(quiz.fields)
 
@@ -38,21 +40,24 @@ defmodule Mastery.Boundary.Proctor do
 
     try do
       timeout = DateTime.diff(quiz.end_at, now, :millisecond)
-      _ = Process.send_after(self(), {:end_quiz, quiz.fields.title}, timeout)
+      _ = Process.send_after(self(), {:end_quiz, quiz}, timeout)
       :ok
     rescue
       _ -> :error
     end
   end
 
-  def schedule_quiz(server \\ __MODULE__, quiz_fields, templates, start_at, end_at) do
+  def schedule_quiz(server \\ __MODULE__, quiz_fields, templates, start_at, end_at, opts) do
     Logger.info("Will schedule quiz #{inspect(quiz_fields)}")
+
+    notify_pid = Keyword.get(opts, :notify_pid, nil)
 
     quiz = %{
       fields: quiz_fields,
       templates: templates,
       start_at: start_at,
-      end_at: end_at
+      end_at: end_at,
+      notify_pid: notify_pid
     }
 
     GenServer.call(server, {:schedule_quiz, quiz})
@@ -79,15 +84,17 @@ defmodule Mastery.Boundary.Proctor do
   end
 
   @impl true
-  def handle_info({:end_quiz, title}, quizzes) do
-    Logger.info("Stopping quiz #{title}")
+  def handle_info({:end_quiz, quiz}, quizzes) do
+    Logger.info("Stopping quiz #{quiz.fields.title}")
 
-    title
+    quiz.fields.title
     |> QuizManager.remove_quiz()
     |> QuizSession.active_sessions_for()
     |> QuizSession.end_sessions()
 
-    Logger.info("Stopped quiz #{title}")
+    Logger.info("Stopped quiz #{quiz.fields.title}")
+
+    notify_quiz_end(quiz)
 
     handle_info(:timeout, quizzes)
   end
@@ -133,4 +140,10 @@ defmodule Mastery.Boundary.Proctor do
 
     cmp == :lt or cmp == :eq
   end
+
+  defp notify_quiz_start(%{notify_pid: nil}), do: nil
+  defp notify_quiz_start(quiz), do: send(quiz.notify_pid, {:started, quiz.fields.title})
+
+  defp notify_quiz_end(%{notify_pid: nil}), do: nil
+  defp notify_quiz_end(quiz), do: send(quiz.notify_pid, {:stopped, quiz.fields.title})
 end

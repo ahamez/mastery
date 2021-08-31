@@ -63,12 +63,18 @@ defmodule Mastery.Boundary.QuizSession do
 
   @impl true
   def handle_call({:answer_question, answer, persistence_fn}, _from, {quiz, email}) do
-    response = Response.new(quiz, email, answer)
-    persistence_fn.(response)
+    # Will be called by the persistence layer.
+    # Thus, if a failure occurs while answering a question, the persistence layer
+    # will be able to roll back.
+    in_transaction_fn = fn response ->
+      quiz
+      |> Quiz.answer_question(response)
+      |> Quiz.select_question()
+    end
 
     quiz
-    |> Quiz.answer_question(response)
-    |> Quiz.select_question()
+    |> Response.new(email, answer)
+    |> persistence_fn.(in_transaction_fn)
     |> maybe_finish(email)
   end
 

@@ -42,10 +42,13 @@ defmodule Mastery do
     QuizSession.answer_question(quiz_title, answer, persistence_fn)
   end
 
-  def schedule_quiz(quiz_fields, templates, start_at, end_at) do
+  def schedule_quiz(quiz_fields, templates, start_at, end_at, opts) do
+    schedule_quiz_opts = Keyword.take(opts, [:notify_pid])
+
     with :ok <- QuizValidator.check(quiz_fields),
          true <- Enum.all?(templates, fn t -> :ok == TemplateValidator.check(t) end),
-         :ok <- Proctor.schedule_quiz(quiz_fields, templates, start_at, end_at) do
+         :ok <-
+           Proctor.schedule_quiz(quiz_fields, templates, start_at, end_at, schedule_quiz_opts) do
       :ok
     else
       error -> error

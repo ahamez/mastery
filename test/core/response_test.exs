@@ -11,7 +11,7 @@ defmodule Mastery.Core.ResponseTest do
   end
 
   defp mk_response(answer) do
-    Response.new(mk_quiz(), answer)
+    Response.new(mk_quiz(), "foo@bar", answer)
   end
 
   defp right(context) do
