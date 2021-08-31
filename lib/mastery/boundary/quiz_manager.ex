@@ -1,12 +1,14 @@
 defmodule Mastery.Boundary.QuizManager do
-  use GenServer
-
   alias Mastery.Core.{Quiz, Template}
+
+  require Logger
+
+  use GenServer
 
   # -- Initialization
 
   def start_link(options \\ []) do
-    IO.puts("#{__MODULE__} options: #{inspect(options)}")
+    Logger.info("#{__MODULE__} options: #{inspect(options)}")
 
     GenServer.start_link(__MODULE__, %{}, options)
   end

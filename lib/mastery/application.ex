@@ -1,11 +1,13 @@
 defmodule Mastery.Application do
   @moduledoc false
 
+  require Logger
+
   use Application
 
   @impl true
   def start(_type, _args) do
-    IO.puts("Starting Mastery")
+    Logger.info("Starting Mastery")
 
     children = [
       {Mastery.Boundary.QuizManager, [name: Mastery.Boundary.QuizManager]},
