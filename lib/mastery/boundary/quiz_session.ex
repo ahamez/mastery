@@ -1,6 +1,8 @@
 defmodule Mastery.Boundary.QuizSession do
   use GenServer
 
+  require Logger
+
   alias Mastery.Core.{Quiz, Response}
 
   # -- Initialization
@@ -11,15 +13,17 @@ defmodule Mastery.Boundary.QuizSession do
     {:ok, {quiz, email}}
   end
 
-  def child_spec({quiz, email}) do
+  def child_spec(args) do
+    Logger.debug("#{__MODULE__}.child_spec/1 #{inspect(args)}")
+
     %{
-      id: {__MODULE__, {quiz.title, email}},
-      start: {__MODULE__, :start_link, [{quiz, email}]},
+      id: {__MODULE__, args},
+      start: {__MODULE__, :start_link, [args]},
       restart: :temporary
     }
   end
 
-  def start_link({quiz, email}) do
+  def start_link(:dummy, {quiz, email}) do
     GenServer.start_link(__MODULE__, {quiz, email}, name: via({quiz.title, email}))
   end
 

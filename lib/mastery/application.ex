@@ -18,7 +18,14 @@ defmodule Mastery.Application do
       {Mastery.Boundary.QuizManager, [name: servers.quiz_manager]},
       {Registry, [name: Mastery.Registry.QuizSession, keys: :unique]},
       {Mastery.Boundary.Proctor, [name: servers.proctor, servers: servers]},
-      {DynamicSupervisor, [name: Mastery.Supervisor.QuizSession, strategy: :one_for_one]}
+      {
+        DynamicSupervisor,
+        [
+          name: Mastery.Supervisor.QuizSession,
+          strategy: :one_for_one,
+          extra_arguments: [:dummy]
+        ]
+      }
     ]
 
     opts = [strategy: :one_for_one, name: Mastery.Supervisor]
