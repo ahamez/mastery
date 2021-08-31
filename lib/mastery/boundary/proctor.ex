@@ -34,9 +34,9 @@ defmodule Mastery.Boundary.Proctor do
     Logger.info("Starting quiz #{quiz.fields.title}")
     notify_quiz_start(quiz)
 
-    QuizManager.build_quiz(quiz.fields)
+    QuizManager.build_quiz(QuizManager, quiz.fields)
 
-    Enum.each(quiz.templates, &QuizManager.add_template(quiz.fields.title, &1))
+    Enum.each(quiz.templates, &QuizManager.add_template(QuizManager, quiz.fields.title, &1))
 
     try do
       timeout = DateTime.diff(quiz.end_at, now, :millisecond)
@@ -84,11 +84,12 @@ defmodule Mastery.Boundary.Proctor do
   end
 
   @impl true
-  def handle_info({:end_quiz, quiz}, quizzes) do
+  def handle_info({:end_quiz, quiz}, _quizzes) do
     Logger.info("Stopping quiz #{quiz.fields.title}")
 
-    quiz.fields.title
-    |> QuizManager.remove_quiz()
+    new_quizzes = QuizManager.remove_quiz(QuizManager, quiz.fields.title)
+
+    new_quizzes
     |> QuizSession.active_sessions_for()
     |> QuizSession.end_sessions()
 
@@ -96,7 +97,7 @@ defmodule Mastery.Boundary.Proctor do
 
     notify_quiz_end(quiz)
 
-    handle_info(:timeout, quizzes)
+    handle_info(:timeout, new_quizzes)
   end
 
   # -- Private

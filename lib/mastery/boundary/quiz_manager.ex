@@ -21,20 +21,20 @@ defmodule Mastery.Boundary.QuizManager do
 
   # -- API
 
-  def build_quiz(server \\ __MODULE__, quiz_fields) do
+  def build_quiz(server, quiz_fields) do
     GenServer.call(server, {:build_quiz, quiz_fields})
   end
 
   @spec add_template(GenServer.server(), String.t(), Template.fields()) :: term()
-  def add_template(server \\ __MODULE__, quiz_title, template_fields) do
+  def add_template(server, quiz_title, template_fields) do
     GenServer.call(server, {:add_template, quiz_title, template_fields})
   end
 
-  def lookup_quiz_by_title(server \\ __MODULE__, quiz_title) do
+  def lookup_quiz_by_title(server, quiz_title) do
     GenServer.call(server, {:lookup_quiz_by_title, quiz_title})
   end
 
-  def remove_quiz(server \\ __MODULE__, quiz_title) do
+  def remove_quiz(server, quiz_title) do
     GenServer.call(server, {:remove_quiz, quiz_title})
   end
 
