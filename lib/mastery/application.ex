@@ -9,11 +9,15 @@ defmodule Mastery.Application do
   def start(_type, _args) do
     Logger.info("Starting Mastery")
 
+    servers = %{
+      proctor: Mastery.Boundary.Proctor,
+      quiz_manager: Mastery.Boundary.QuizManager
+    }
+
     children = [
-      {Mastery.Boundary.QuizManager, [name: Mastery.Boundary.QuizManager]},
+      {Mastery.Boundary.QuizManager, [name: servers.quiz_manager]},
       {Registry, [name: Mastery.Registry.QuizSession, keys: :unique]},
-      {Mastery.Boundary.Proctor,
-       [name: Mastery.Boundary.Proctor, quiz_manager_server: Mastery.Boundary.QuizManager]},
+      {Mastery.Boundary.Proctor, [name: servers.proctor, servers: servers]},
       {DynamicSupervisor, [name: Mastery.Supervisor.QuizSession, strategy: :one_for_one]}
     ]
 

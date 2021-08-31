@@ -20,7 +20,7 @@ defmodule Mastery.Boundary.Proctor do
 
   def start_link(options \\ []) do
     Logger.debug("#{__MODULE__}.start_link/1 #{inspect(options)}")
-    {proctor_options, gen_server_options} = Keyword.split(options, [:quiz_manager_server])
+    {proctor_options, gen_server_options} = Keyword.split(options, [:servers])
 
     GenServer.start_link(__MODULE__, proctor_options, gen_server_options)
   end
@@ -31,7 +31,7 @@ defmodule Mastery.Boundary.Proctor do
 
     {:ok,
      %{
-       quiz_manager_server: Keyword.fetch!(options, :quiz_manager_server),
+       servers: Keyword.fetch!(options, :servers),
        quizzes: []
      }}
   end
@@ -78,7 +78,7 @@ defmodule Mastery.Boundary.Proctor do
   def handle_info({:end_quiz, quiz}, state) do
     Logger.info("Stopping quiz #{quiz.fields.title}")
 
-    new_quizzes = QuizManager.remove_quiz(state.quiz_manager_server, quiz.fields.title)
+    new_quizzes = QuizManager.remove_quiz(state.servers.quiz_manager, quiz.fields.title)
 
     new_quizzes
     |> QuizSession.active_sessions_for()
@@ -115,11 +115,11 @@ defmodule Mastery.Boundary.Proctor do
     Logger.info("Starting quiz #{quiz.fields.title}")
     notify_quiz_start(quiz)
 
-    QuizManager.build_quiz(state.quiz_manager_server, quiz.fields)
+    QuizManager.build_quiz(state.servers.quiz_manager, quiz.fields)
 
     Enum.each(
       quiz.templates,
-      &QuizManager.add_template(state.quiz_manager_server, quiz.fields.title, &1)
+      &QuizManager.add_template(state.servers.quiz_manager, quiz.fields.title, &1)
     )
 
     try do
