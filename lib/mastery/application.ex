@@ -12,7 +12,8 @@ defmodule Mastery.Application do
     children = [
       {Mastery.Boundary.QuizManager, [name: Mastery.Boundary.QuizManager]},
       {Registry, [name: Mastery.Registry.QuizSession, keys: :unique]},
-      {Mastery.Boundary.Proctor, [name: Mastery.Boundary.Proctor]},
+      {Mastery.Boundary.Proctor,
+       [name: Mastery.Boundary.Proctor, quiz_manager_server: Mastery.Boundary.QuizManager]},
       {DynamicSupervisor, [name: Mastery.Supervisor.QuizSession, strategy: :one_for_one]}
     ]
 

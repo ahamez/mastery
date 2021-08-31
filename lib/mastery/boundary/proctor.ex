@@ -19,33 +19,24 @@ defmodule Mastery.Boundary.Proctor do
   # -- Initialization
 
   def start_link(options \\ []) do
-    GenServer.start_link(__MODULE__, [], options)
+    Logger.debug("#{__MODULE__}.start_link/1 #{inspect(options)}")
+    {proctor_options, gen_server_options} = Keyword.split(options, [:quiz_manager_server])
+
+    GenServer.start_link(__MODULE__, proctor_options, gen_server_options)
   end
 
   @impl true
-  def init(quizzes) do
-    {:ok, quizzes}
+  def init(options) do
+    Logger.debug("#{__MODULE__}.init/1 #{inspect(options)}")
+
+    {:ok,
+     %{
+       quiz_manager_server: Keyword.fetch!(options, :quiz_manager_server),
+       quizzes: []
+     }}
   end
 
   # -- API
-
-  @spec start_quiz(quiz_map(), DateTime.t()) :: :ok | :error
-  def start_quiz(quiz, now) do
-    Logger.info("Starting quiz #{quiz.fields.title}")
-    notify_quiz_start(quiz)
-
-    QuizManager.build_quiz(QuizManager, quiz.fields)
-
-    Enum.each(quiz.templates, &QuizManager.add_template(QuizManager, quiz.fields.title, &1))
-
-    try do
-      timeout = DateTime.diff(quiz.end_at, now, :millisecond)
-      _ = Process.send_after(self(), {:end_quiz, quiz}, timeout)
-      :ok
-    rescue
-      _ -> :error
-    end
-  end
 
   def schedule_quiz(server, quiz_fields, templates, start_at, end_at, opts \\ []) do
     Logger.info("Will schedule quiz #{inspect(quiz_fields)}")
@@ -66,28 +57,28 @@ defmodule Mastery.Boundary.Proctor do
   # -- GenServer callbacks
 
   @impl true
-  def handle_call({:schedule_quiz, quiz}, _from, quizzes) do
+  def handle_call({:schedule_quiz, quiz}, _from, state) do
     now = DateTime.utc_now()
 
-    [quiz | quizzes]
+    [quiz | state.quizzes]
     |> sort_quizzes_by_start_time()
-    |> start_quizzes(now)
-    |> build_reply_with_timeout({:reply, :ok}, now)
+    |> start_quizzes(now, state)
+    |> build_reply_with_timeout({:reply, :ok}, now, state)
   end
 
   @impl true
-  def handle_info(:timeout, quizzes) do
+  def handle_info(:timeout, state) do
     now = DateTime.utc_now()
-    remaining_quizzes = start_quizzes(quizzes, now)
+    remaining_quizzes = start_quizzes(state.quizzes, now, state)
 
-    {:noreply, remaining_quizzes}
+    {:noreply, %{state | quizzes: remaining_quizzes}}
   end
 
   @impl true
-  def handle_info({:end_quiz, quiz}, _quizzes) do
+  def handle_info({:end_quiz, quiz}, state) do
     Logger.info("Stopping quiz #{quiz.fields.title}")
 
-    new_quizzes = QuizManager.remove_quiz(QuizManager, quiz.fields.title)
+    new_quizzes = QuizManager.remove_quiz(state.quiz_manager_server, quiz.fields.title)
 
     new_quizzes
     |> QuizSession.active_sessions_for()
@@ -97,16 +88,18 @@ defmodule Mastery.Boundary.Proctor do
 
     notify_quiz_end(quiz)
 
-    handle_info(:timeout, new_quizzes)
+    handle_info(:timeout, %{state | quizzes: new_quizzes})
   end
 
   # -- Private
 
-  defp build_reply_with_timeout(quizzes, reply, now) do
-    append_to_state = fn state, quizzes -> Tuple.append(state, quizzes) end
+  defp build_reply_with_timeout(quizzes, reply, now, state) do
+    append_to_reply = fn reply, quizzes ->
+      Tuple.append(reply, %{state | quizzes: quizzes})
+    end
 
     reply
-    |> append_to_state.(quizzes)
+    |> append_to_reply.(quizzes)
     |> maybe_append_timeout(quizzes, now)
   end
 
@@ -118,13 +111,33 @@ defmodule Mastery.Boundary.Proctor do
     Tuple.append(reply, timeout)
   end
 
-  defp start_quizzes(quizzes, now) do
+  defp start_quiz(quiz, now, state) do
+    Logger.info("Starting quiz #{quiz.fields.title}")
+    notify_quiz_start(quiz)
+
+    QuizManager.build_quiz(state.quiz_manager_server, quiz.fields)
+
+    Enum.each(
+      quiz.templates,
+      &QuizManager.add_template(state.quiz_manager_server, quiz.fields.title, &1)
+    )
+
+    try do
+      timeout = DateTime.diff(quiz.end_at, now, :millisecond)
+      _ = Process.send_after(self(), {:end_quiz, quiz}, timeout)
+      :ok
+    rescue
+      _ -> :error
+    end
+  end
+
+  defp start_quizzes(quizzes, now, state) do
     {ready, not_ready} =
       Enum.split_while(quizzes, fn quiz ->
         date_time_less_than_or_equal?(quiz.start_at, now)
       end)
 
-    Enum.each(ready, &start_quiz(&1, now))
+    Enum.each(ready, &start_quiz(&1, now, state))
 
     not_ready
   end
