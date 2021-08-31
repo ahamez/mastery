@@ -47,7 +47,7 @@ defmodule Mastery.Boundary.Proctor do
     end
   end
 
-  def schedule_quiz(server \\ __MODULE__, quiz_fields, templates, start_at, end_at, opts) do
+  def schedule_quiz(server, quiz_fields, templates, start_at, end_at, opts \\ []) do
     Logger.info("Will schedule quiz #{inspect(quiz_fields)}")
 
     notify_pid = Keyword.get(opts, :notify_pid, nil)

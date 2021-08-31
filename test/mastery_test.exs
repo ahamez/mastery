@@ -66,7 +66,7 @@ defmodule MasteryTest do
   defp start_quiz(fields) do
     now = DateTime.utc_now()
     ending = DateTime.add(now, 60)
-    Mastery.schedule_quiz(Math.quiz_fields(), fields, now, ending, notify_pid: nil)
+    Mastery.schedule_quiz(Math.quiz_fields(), fields, now, ending)
   end
 
   defp take_quiz(email) do

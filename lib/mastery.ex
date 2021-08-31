@@ -36,19 +36,26 @@ defmodule Mastery do
     QuizSession.select_question(quiz_title)
   end
 
-  def answer_question(quiz_title, answer, options \\ []) do
-    persistence_fn = Keyword.get(options, :persistence_fn, @default_persistence_fn)
+  def answer_question(quiz_title, answer, opts \\ []) do
+    persistence_fn = Keyword.get(opts, :persistence_fn, @default_persistence_fn)
 
     QuizSession.answer_question(quiz_title, answer, persistence_fn)
   end
 
-  def schedule_quiz(quiz_fields, templates, start_at, end_at, opts) do
+  def schedule_quiz(quiz_fields, templates, start_at, end_at, opts \\ []) do
     schedule_quiz_opts = Keyword.take(opts, [:notify_pid])
 
     with :ok <- QuizValidator.check(quiz_fields),
          true <- Enum.all?(templates, fn t -> :ok == TemplateValidator.check(t) end),
          :ok <-
-           Proctor.schedule_quiz(quiz_fields, templates, start_at, end_at, schedule_quiz_opts) do
+           Proctor.schedule_quiz(
+             Mastery.Boundary.Proctor,
+             quiz_fields,
+             templates,
+             start_at,
+             end_at,
+             schedule_quiz_opts
+           ) do
       :ok
     else
       error -> error
